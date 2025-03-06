@@ -1,0 +1,16 @@
+*.env
+venv/
+.venv/
+build/
+dist/
+*.spec
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+/venv/
+
+venv/*
+.venv/*
+build/*
+dist/*
