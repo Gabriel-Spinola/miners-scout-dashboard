@@ -5,18 +5,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Função de conexão com o banco de dados
 def conectar_ao_banco():
     return mysql.connector.connect(
-        host=os.getenv('DB_HOST'),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        database=os.getenv('DB_NAME')
+        host=st.secrets["DB_HOST"],
+        user=st.secrets["DB_USER"],
+        password=st.secrets["DB_PASSWORD"],
+        database=st.secrets["DB_NAME"]
     )
 
 # Cache de dados para melhorar o desempenho
