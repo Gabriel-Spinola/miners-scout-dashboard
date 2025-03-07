@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 from dotenv import load_dotenv
 import os
 import numpy as np
+import io
+import csv
 
 # Page configuration
 st.set_page_config(
@@ -239,6 +241,13 @@ def construir_alianca_otima(team_rankings, challenge_rankings, df_processed, tam
     
     return aliances
 
+# Add this helper function for CSV export
+def convert_df_to_csv(df):
+    """Converts a DataFrame to a CSV string for download."""
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    return csv_buffer.getvalue()
+
 def main():
     st.title("🤖 FRC REEFSCAPE Dashboard")
     
@@ -296,6 +305,14 @@ def main():
             use_container_width=True
         )
         
+        # Add export button
+        st.download_button(
+            label="📥 Exportar Classificação (CSV)",
+            data=convert_df_to_csv(display_rankings),
+            file_name="frc_rankings.csv",
+            mime="text/csv",
+        )
+        
         # Top 10 Equipes
         st.subheader("Top 10 Equipes")
         # Horizontal bar chart for better column-like visualization
@@ -338,6 +355,37 @@ def main():
             challenge_team_rankings['rank'] = challenge_team_rankings['total_points'].rank(
                 ascending=False, method='min').astype(int)
             challenge_team_rankings = challenge_team_rankings.sort_values('rank')
+            
+            # Display classification table for this challenge
+            st.subheader(f"Classificação das Equipes no Desafio {selected_challenge}")
+            
+            # Prepare the display table with proper column names
+            display_challenge_rankings = challenge_team_rankings.copy()
+            display_challenge_rankings = display_challenge_rankings.rename(columns={
+                'team': 'Equipe',
+                'total_points': 'Pontos Totais',
+                'auto_points': 'Pontos Autônomo',
+                'teleop_points': 'Pontos Teleoperado',
+                'rank': 'Classificação'
+            })
+            
+            # Convert numeric columns to integers for cleaner display
+            for col in ['Pontos Totais', 'Pontos Autônomo', 'Pontos Teleoperado', 'Classificação']:
+                display_challenge_rankings[col] = display_challenge_rankings[col].astype(int)
+            
+            # Display the table
+            st.dataframe(
+                display_challenge_rankings[['Classificação', 'Equipe', 'Pontos Totais', 'Pontos Autônomo', 'Pontos Teleoperado']],
+                use_container_width=True
+            )
+            
+            # Add export button for this challenge ranking
+            st.download_button(
+                label=f"📥 Exportar Classificação - {selected_challenge} (CSV)",
+                data=convert_df_to_csv(display_challenge_rankings),
+                file_name=f"frc_ranking_{selected_challenge.replace(' ', '_')}.csv",
+                mime="text/csv",
+            )
             
             # Pontuação por Equipe - now stacked vertically
             st.subheader("Pontuação por Equipe")
@@ -429,6 +477,20 @@ def main():
             )
             
             st.plotly_chart(radar_fig, use_container_width=True)
+            
+            # Add export button for challenge data
+            challenge_export = challenge_df.groupby(['team', 'phase_name']).agg({
+                'total_points': 'sum',
+                'auto_points': 'sum',
+                'teleop_points': 'sum'
+            }).reset_index()
+            
+            st.download_button(
+                label=f"📥 Exportar Dados do Desafio {selected_challenge} (CSV)",
+                data=convert_df_to_csv(challenge_export),
+                file_name=f"frc_challenge_{selected_challenge.replace(' ', '_')}.csv",
+                mime="text/csv",
+            )
     
     with tab3:
         st.header("Alianças Sugeridas")
@@ -645,6 +707,24 @@ def main():
                         labels={'phase_name': 'Fase', 'total_points': 'Pontos Totais'}
                     )
                     st.plotly_chart(fig, use_container_width=True)
+            
+            # After displaying alliance, add export button
+            # Prepare alliance data for export
+            alliance_export = pd.DataFrame({
+                'team': alliance,
+                'alliance_number': 1
+            })
+            
+            # Add individual team stats
+            alliance_stats = team_rankings[team_rankings['team'].isin(alliance)][['team', 'total_points', 'auto_points', 'teleop_points', 'rank']]
+            alliance_export = alliance_export.merge(alliance_stats, on='team', how='left')
+            
+            st.download_button(
+                label="📥 Exportar Dados da Aliança (CSV)",
+                data=convert_df_to_csv(alliance_export),
+                file_name="frc_alliance.csv",
+                mime="text/csv",
+            )
         
         else:
             # Show top recommended alliances based on challenge and phase complementarity
@@ -729,6 +809,29 @@ def main():
                             st.plotly_chart(fig, use_container_width=True)
                 
                 st.markdown("---")  # Add a separator between alliances
+            
+            # After displaying all alliances, prepare export data
+            all_alliance_data = []
+            for i, alliance in enumerate(alliances[:3]):
+                for team in alliance['teams']:
+                    team_data = team_rankings[team_rankings['team'] == team].iloc[0].to_dict()
+                    all_alliance_data.append({
+                        'alliance_number': i + 1,
+                        'team': team,
+                        'rank': team_data['rank'],
+                        'total_points': team_data['total_points'],
+                        'auto_points': team_data['auto_points'],
+                        'teleop_points': team_data['teleop_points']
+                    })
+            
+            all_alliance_export = pd.DataFrame(all_alliance_data)
+            
+            st.download_button(
+                label="📥 Exportar Todas as Alianças Sugeridas (CSV)",
+                data=convert_df_to_csv(all_alliance_export),
+                file_name="frc_recommended_alliances.csv",
+                mime="text/csv",
+            )
 
 if __name__ == "__main__":
     main()
