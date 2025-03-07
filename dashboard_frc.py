@@ -3,11 +3,7 @@ import pandas as pd
 import mysql.connector
 import plotly.express as px
 import plotly.graph_objects as go
-from dotenv import load_dotenv
-import os
-import numpy as np
 import io
-import csv
 
 # Page configuration
 st.set_page_config(
@@ -15,10 +11,6 @@ st.set_page_config(
     page_icon="🤖",
     layout="wide"
 )
-
-# Load environment variables
-load_dotenv()
-
 # Point mapping
 POINTS_MAP = {
     'LEAVE': {'auto': 3, 'teleop': 0},
