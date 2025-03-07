@@ -43,29 +43,79 @@ def carregar_dados():
 
 # Calcular classificações de equipes para cada desafio
 def calcular_classificacoes(pontuacoes_df):
-    # Calcular pontos totais para cada robô em cada desafio
-    # Pontos = completed_teleop + completed_autonomous
-    classificacoes = pontuacoes_df.groupby(['robot_id', 'team', 'challenge_id', 'challenge_name'])[
+    # Calculate total points for each robot in each challenge using the scoring table values
+    classificacoes = pontuacoes_df.groupby(['robot_id', 'team', 'challenge_id', 'challenge_name', 'phase_name'])[
         ['completed_teleop', 'completed_autonomous']
-    ].sum().reset_index()
+    ].apply(lambda x: pd.Series({
+        'pontos_teleop': x['completed_teleop'].apply(lambda score: {
+            'LEAVE': 0,
+            'CORAL L1': 2,
+            'CORAL L2': 3,
+            'CORAL L3': 4,
+            'CORAL L4': 5,
+            'PROCESSOR': 6,
+            'NET': 4,
+            'BARGE': 2,
+            'SHALLOW CAGE': 6,
+            'DEEP CAGE': 12
+        }.get(x.name[4], 0) * score).sum(),
+        'pontos_auto': x['completed_autonomous'].apply(lambda score: {
+            'LEAVE': 3,
+            'CORAL L1': 3,
+            'CORAL L2': 4,
+            'CORAL L3': 6,
+            'CORAL L4': 7,
+            'PROCESSOR': 6,
+            'NET': 4,
+            'BARGE': 0,
+            'SHALLOW CAGE': 6,
+            'DEEP CAGE': 12
+        }.get(x.name[4], 0) * score).sum()
+    })).reset_index()
     
-    classificacoes['pontos_totais'] = classificacoes['completed_teleop'] + classificacoes['completed_autonomous']
+    classificacoes['pontos_totais'] = classificacoes['pontos_teleop'] + classificacoes['pontos_auto']
     
-    # Classificar equipes dentro de cada desafio com base nos pontos totais
+    # Rank teams within each challenge based on total points
     classificacoes['classificacao'] = classificacoes.groupby('challenge_id')['pontos_totais'].rank(ascending=False, method='min')
     
     return classificacoes
 
 # Calcular desempenho por fase
 def calcular_desempenho_fase(pontuacoes_df):
-    # Agrupar por robô e fase para ver taxa de sucesso
-    desempenho_fase = pontuacoes_df.groupby(['robot_id', 'team', 'phase_id', 'phase_name'])[
-        ['completed_teleop', 'completed_autonomous']
-    ].sum().reset_index()
+    # Group by robot and phase to calculate points using the scoring table
+    desempenho_fase = pontuacoes_df.groupby(['robot_id', 'team', 'phase_id', 'phase_name']).apply(
+        lambda x: pd.Series({
+            'pontos_teleop': x['completed_teleop'].apply(lambda score: {
+                'LEAVE': 0,
+                'CORAL L1': 2,
+                'CORAL L2': 3,
+                'CORAL L3': 4,
+                'CORAL L4': 5,
+                'PROCESSOR': 6,
+                'NET': 4,
+                'BARGE': 2,
+                'SHALLOW CAGE': 6,
+                'DEEP CAGE': 12
+            }.get(x.name[3], 0) * score).sum(),
+            'pontos_auto': x['completed_autonomous'].apply(lambda score: {
+                'LEAVE': 3,
+                'CORAL L1': 3,
+                'CORAL L2': 4,
+                'CORAL L3': 6,
+                'CORAL L4': 7,
+                'PROCESSOR': 6,
+                'NET': 4,
+                'BARGE': 0,
+                'SHALLOW CAGE': 6,
+                'DEEP CAGE': 12
+            }.get(x.name[3], 0) * score).sum(),
+            'completions_teleop': x['completed_teleop'].sum(),
+            'completions_auto': x['completed_autonomous'].sum()
+        })
+    ).reset_index()
     
-    # Calcular sucesso como binário (completaram a fase ou não)
-    desempenho_fase['sucesso'] = ((desempenho_fase['completed_teleop'] > 0) | 
-                             (desempenho_fase['completed_autonomous'] > 0)).astype(int)
+    desempenho_fase['sucesso'] = ((desempenho_fase['completions_teleop'] > 0) | 
+                                 (desempenho_fase['completions_auto'] > 0)).astype(int)
     
     return desempenho_fase
 
