@@ -16,6 +16,7 @@ def conectar_ao_banco():
     )
 
 # Cache de dados para melhorar o desempenho
+#
 @st.cache_data(ttl=300)
 def carregar_dados():
     conn = conectar_ao_banco()
