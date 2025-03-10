@@ -552,24 +552,35 @@ def main():
                     with team_cols[j]:
                         team_data = team_rankings[team_rankings['team'] == team].iloc[0]
                         
-                        # Get team's best challenge - simplified
-                        best_challenge = challenge_rankings[
-                            challenge_rankings['team'] == team
-                        ].sort_values('total_points', ascending=False)
-                        
-                        if not best_challenge.empty:
-                            best_challenge_name = best_challenge.iloc[0]['challenge_name']
-                        else:
-                            best_challenge_name = "N/A"
-                        
+                        # Display team name and rank
                         st.metric(
                             f"Equipe {j+1}", 
                             team, 
                             f"Rank: {int(team_data['rank'])}"
                         )
                         
-                        # Simpler display
-                        st.markdown(f"**Melhor Desafio:** {best_challenge_name}")
+                        # Get team's best challenge and phases
+                        team_phases = df[df['team'] == team].groupby(
+                            ['challenge_name', 'phase_name']
+                        ).agg({
+                            'total_points': 'sum'
+                        }).reset_index()
+                        
+                        if not team_phases.empty:
+                            # Group by challenge first to find best challenge
+                            challenge_totals = team_phases.groupby('challenge_name')['total_points'].sum().reset_index()
+                            best_challenge = challenge_totals.loc[challenge_totals['total_points'].idxmax()]
+                            
+                            # Find best phase within best challenge
+                            best_phase = team_phases[
+                                team_phases['challenge_name'] == best_challenge['challenge_name']
+                            ].sort_values('total_points', ascending=False).iloc[0]
+                            
+                            st.markdown(f"""
+                            **Melhor Desafio:** {best_challenge['challenge_name']}
+                            - *Melhor Fase:* {best_phase['phase_name']}
+                            - *Pontos:* {int(best_phase['total_points'])}
+                            """)
                 
                 # Show total alliance points
                 st.metric("Pontuação Total da Aliança", f"{int(alliance_points)} pontos")
@@ -609,33 +620,63 @@ def main():
                         with team_cols[j]:
                             team_data = team_rankings[team_rankings['team'] == team].iloc[0]
                             
-                            # Simpler display
+                            # Display team name and rank
                             st.metric(
                                 f"Equipe {j+1}", 
                                 team, 
                                 f"Rank: {int(team_data['rank'])}"
                             )
                             
-                            # Get just best challenge, skip phase details
-                            best_challenge = challenge_rankings[
-                                challenge_rankings['team'] == team
-                            ].sort_values('total_points', ascending=False)
+                            # Get team's best challenge and phases
+                            team_phases = df[df['team'] == team].groupby(
+                                ['challenge_name', 'phase_name']
+                            ).agg({
+                                'total_points': 'sum'
+                            }).reset_index()
                             
-                            if not best_challenge.empty:
-                                best_challenge_name = best_challenge.iloc[0]['challenge_name']
-                                st.markdown(f"**Melhor Desafio:** {best_challenge_name}")
+                            if not team_phases.empty:
+                                # Group by challenge first to find best challenge
+                                challenge_totals = team_phases.groupby('challenge_name')['total_points'].sum().reset_index()
+                                best_challenge = challenge_totals.loc[challenge_totals['total_points'].idxmax()]
+                                
+                                # Find best phase within best challenge
+                                best_phase = team_phases[
+                                    team_phases['challenge_name'] == best_challenge['challenge_name']
+                                ].sort_values('total_points', ascending=False).iloc[0]
+                                
+                                st.markdown(f"""
+                                **Melhor Desafio:** {best_challenge['challenge_name']}
+                                - *Melhor Fase:* {best_phase['phase_name']}
+                                - *Pontos:* {int(best_phase['total_points'])}
+                                """)
                     
-                    # Simpler alliance visualization - just a bar chart
+                    # Show phase coverage visualization
                     if 'phase_coverage' in alliance and not alliance['phase_coverage'].empty:
-                        coverage_data = alliance['phase_coverage'].sort_values('total_points', ascending=False)
+                        st.subheader("Cobertura de Fases da Aliança")
+                        
+                        # Create a more detailed visualization showing phases within challenges
+                        coverage_data = alliance['phase_coverage'].sort_values(['challenge_name', 'total_points'], ascending=[True, False])
                         
                         fig = px.bar(
                             coverage_data,
-                            x='challenge_name',
+                            x='phase_name',
                             y='total_points',
-                            title="Pontuação por Desafio",
-                            labels={'challenge_name': 'Desafio', 'total_points': 'Pontos Totais'}
+                            color='challenge_name',
+                            title="Pontuação por Fase em cada Desafio",
+                            labels={
+                                'phase_name': 'Fase',
+                                'total_points': 'Pontos Totais',
+                                'challenge_name': 'Desafio'
+                            },
+                            barmode='group'
                         )
+                        
+                        fig.update_layout(
+                            xaxis_title="Fases",
+                            yaxis_title="Pontos",
+                            legend_title="Desafios"
+                        )
+                        
                         st.plotly_chart(fig, use_container_width=True)
                     
                     st.markdown("---")  # Add a separator between alliances
@@ -684,25 +725,6 @@ def main():
                 
                 st.subheader("Melhor Desafio")
                 st.info(f"**{best_challenge['challenge_name']}** com **{int(best_challenge['total_points'])}** pontos")
-                
-                # Create a bar chart for challenge performance
-                st.subheader("Desempenho por Desafio")
-                fig = px.bar(
-                    challenge_performance.sort_values('total_points', ascending=False),
-                    x='challenge_name',
-                    y=['auto_points', 'teleop_points'],
-                    title=f"Pontuação de {selected_robot} por Desafio",
-                    labels={
-                        'challenge_name': 'Desafio',
-                        'value': 'Pontos',
-                        'variable': 'Tipo'
-                    },
-                    barmode='stack'
-                )
-                
-                # Update colors and layout
-                fig.update_layout(legend_title_text='Modo')
-                st.plotly_chart(fig, use_container_width=True)
                 
                 # Show detailed phase performance
                 st.subheader("Desempenho por Fase")
